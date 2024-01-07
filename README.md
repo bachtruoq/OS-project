@@ -1,2 +1,2 @@
-# OSproject
+# OS-project
 Multilevel Feedback Queue Scheduling
