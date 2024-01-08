@@ -3,6 +3,7 @@ import customtkinter as ctk
 from CTkTable import *
 from Queue import Queue
 from Process import Process
+from copy import deepcopy
 
 inf = 10**9
 
@@ -17,6 +18,7 @@ queue_list  = []
 process_cnt = 0
 process_list = []
 allprocess_list = []
+reset_process_list = []
 
 process_with_cpu = None
 last_timestep = 0
@@ -61,6 +63,7 @@ def add_queue_window():
 
 # Add process window
 def add_process_window():
+    global reset_process_list
     addprocessWindow = ctk.CTk()
 
     addprocessWindow.geometry("480x80+500+400")
@@ -91,6 +94,7 @@ def add_process_window():
     def add_process():
         global process_cnt
         process_list.append(Process(process_cnt, int(addprocess_entry_arrivaltime.get()), int(addprocess_entry_bursttime.get())))
+        reset_process_list.append(Process(process_cnt, int(addprocess_entry_arrivaltime.get()), int(addprocess_entry_bursttime.get())))
         process_cnt += 1
         addprocessWindow.destroy()
 
@@ -134,6 +138,7 @@ class App(ctk.CTk):
         # Submit
         def submit():
             global queue_list, process_list, allprocess_list
+            
             # Display frame
             self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
             self.main_frame.grid(row=0, column=1, rowspan=4, sticky="nsew")
@@ -149,9 +154,9 @@ class App(ctk.CTk):
             # Add next button
             # Finish
             def finish(curtime):
-                process_text.set(process_text.get()+f" P{last_cpu.process_id} |")
+                process_text.set(process_text.get()+f"  P{last_cpu.process_id}  |")
                 time_text = f"{curtime}"
-                while len(time_text) < 5:
+                while len(time_text) < 7:
                     time_text = " "+time_text 
                 timeline_text.set(timeline_text.get()+time_text)
 
@@ -183,7 +188,7 @@ class App(ctk.CTk):
                                 self.table.insert(row=proc.process_id+1, column=1, value="FCFS")
                                 proc.fcfs_arrive = curtime
                             else:
-                                self.table.insert(row=proc.process_id+1, column=1, value=f"RR{proc.cur_queue+1}")
+                                self.table.insert(row=proc.process_id+1, column=1, value=f"RR{proc.cur_queue}")
 
                             # Move to below queue
                             queue_list[proc.cur_queue].queue.append(proc)
@@ -207,9 +212,9 @@ class App(ctk.CTk):
                         # Update Gantt Chart
                         if process is not last_cpu:
                             if last_cpu != None:
-                                process_text.set(process_text.get()+f" P{last_cpu.process_id} |")
+                                process_text.set(process_text.get()+f"  P{last_cpu.process_id}  |")
                                 time_text = f"{curtime}"
-                                while len(time_text) < 5:
+                                while len(time_text) < 7:
                                     time_text = " "+time_text 
                                 timeline_text.set(timeline_text.get()+time_text)
                             last_cpu = process
@@ -234,7 +239,7 @@ class App(ctk.CTk):
                 # Add arriving process to 1st queue
                 queue_list[0].queue.append(process)
                 process.cur_queue = 0
-                self.table.insert(row=process.process_id+1, column=1, value="RR1")
+                self.table.insert(row=process.process_id+1, column=1, value="RR0")
             
             # Upgrade a process from FCFS queue
             def upgrade(process, curtime):
@@ -255,7 +260,7 @@ class App(ctk.CTk):
                 # Move process to high priority queue
                 queue_list[0].queue.append(process)
                 process.cur_queue = 0
-                self.table.insert(row=process.process_id+1, column=1, value="RR1")
+                self.table.insert(row=process.process_id+1, column=1, value="RR0")
 
             def next_timestep():
                 global process_with_cpu, last_timestep, upgrade_bound, last_cpu, finish_check
@@ -318,7 +323,8 @@ class App(ctk.CTk):
                         
                         # Preemptive
                         if process_with_cpu != None and process_with_cpu.cur_queue > 0:
-                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=f"RR{process_with_cpu.cur_queue+1}")
+                            queue_tmp = f"RR{process_with_cpu.cur_queue}" if process_with_cpu.cur_queue < len(queue_list)-1 else "FCFS"
+                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=queue_tmp)
 
                         last_timestep = next_arrival
                     
@@ -334,11 +340,13 @@ class App(ctk.CTk):
                         
                         # Preemptive
                         if process_with_cpu != None and process_with_cpu.cur_queue > 0:
-                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=f"RR{process_with_cpu.cur_queue+1}")
+                            queue_tmp = f"RR{process_with_cpu.cur_queue}" if process_with_cpu.cur_queue < len(queue_list)-1 else "FCFS"
+                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=queue_tmp)
                         
                         last_timestep = next_upgrade
                     
-                    give_cpu(min(next_arrival, next_upgrade))
+                    if process_with_cpu == None or process_with_cpu.cur_queue > 0:
+                        give_cpu(min(next_arrival, next_upgrade))
                 
                 timetext.set(str(last_timestep))
 
@@ -377,7 +385,7 @@ class App(ctk.CTk):
             
             # Add FCFS to queue list
             queue_list.append(Queue(queue_cnt, inf))
-            
+
             # Sort process_list with respect to arrival time
             allprocess_list = process_list.copy()
             process_list.sort()
