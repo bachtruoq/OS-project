@@ -149,9 +149,9 @@ class App(ctk.CTk):
             # Add next button
             # Finish
             def finish(curtime):
-                process_text.set(process_text.get()+f"  P{last_cpu.process_id}  |")
+                process_text.set(process_text.get()+f" P{last_cpu.process_id} |")
                 time_text = f"{curtime}"
-                while len(time_text) < 7:
+                while len(time_text) < 5:
                     time_text = " "+time_text 
                 timeline_text.set(timeline_text.get()+time_text)
 
@@ -199,7 +199,7 @@ class App(ctk.CTk):
                 for qqueue in queue_list:
                     if qqueue.queue:
                         process = qqueue.queue[0]
-
+                        
                         process.remain_cpu = min(process.remain_time, qqueue.quantum)
                         self.table.insert(row=process.process_id+1, column=1, value="CPU")
                         process_with_cpu = process
@@ -207,9 +207,9 @@ class App(ctk.CTk):
                         # Update Gantt Chart
                         if process is not last_cpu:
                             if last_cpu != None:
-                                process_text.set(process_text.get()+f"  P{last_cpu.process_id}  |")
+                                process_text.set(process_text.get()+f" P{last_cpu.process_id} |")
                                 time_text = f"{curtime}"
-                                while len(time_text) < 7:
+                                while len(time_text) < 5:
                                     time_text = " "+time_text 
                                 timeline_text.set(timeline_text.get()+time_text)
                             last_cpu = process
@@ -272,10 +272,7 @@ class App(ctk.CTk):
                 # Next time that case 3 happen: a process is upgraded from FCFS
                 next_upgrade = inf
                 if queue_list[-1].queue:
-                    if process_with_cpu != None and process_with_cpu.cur_queue < len(queue_list)-1:
-                        next_upgrade = queue_list[-1].queue[0].fcfs_arrive + upgrade_bound
-                    elif len(queue_list[-1].queue) > 1:
-                        next_upgrade = queue_list[-1].queue[1].fcfs_arrive + upgrade_bound
+                    next_upgrade = queue_list[-1].queue[0].fcfs_arrive + upgrade_bound
 
                 # Check if all finish
                 if finish_cpu == inf and next_arrival == inf and next_upgrade == inf:
@@ -288,10 +285,12 @@ class App(ctk.CTk):
                 if finish_cpu <= next_arrival and finish_cpu <= next_upgrade:
                     downgrade(process_with_cpu, finish_cpu)
                     
+                    last_timestep = finish_cpu
+                    
                     # Add arriving processes
                     next_arrive = next_arrival
                     while next_arrive == finish_cpu and process_list:
-                        add_new_process(process_list.pop(0))
+                        add_new_process(process_list.pop(0), next_arrival)
                         next_arrive = -1
                         if process_list:
                             next_arrive = process_list[0].arrival_time
@@ -299,14 +298,12 @@ class App(ctk.CTk):
                     # Move background processes to high priority queue
                     next_up = next_upgrade
                     while next_up == finish_cpu and queue_list[-1].queue:
-                        upgrade(queue_list[-1].queue.pop(0))
+                        upgrade(queue_list[-1].queue.pop(0), next_upgrade)
                         next_upgrade = -1
                         if queue_list[-1].queue:
                             next_up = queue_list[-1].queue[0].fcfs_arrive + upgrade_bound
 
                     give_cpu(finish_cpu)
-
-                    last_timestep = finish_cpu
 
                 # Case 2 happen first
                 else:
@@ -321,7 +318,7 @@ class App(ctk.CTk):
                         
                         # Preemptive
                         if process_with_cpu != None and process_with_cpu.cur_queue > 0:
-                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=f"RR{process_with_cpu.cur_queue}")
+                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=f"RR{process_with_cpu.cur_queue+1}")
 
                         last_timestep = next_arrival
                     
@@ -329,18 +326,15 @@ class App(ctk.CTk):
                     if next_upgrade < finish_cpu and next_upgrade <= next_arrival:
                         # Move background processes to high priority queue
                         tmp = next_up = next_upgrade
-                        pop_from = 0
-                        if process_with_cpu != None and process_with_cpu.cur_queue == len(queue_list)-1:
-                            pop_from += 1
-                        while next_up == tmp and len(queue_list[-1].queue) > pop_from:
-                            upgrade(queue_list[-1].queue.pop(pop_from), next_upgrade)
+                        while next_up == tmp and queue_list[-1].queue:
+                            upgrade(queue_list[-1].queue.pop(0), next_upgrade)
                             next_up = -1
-                            if len(queue_list[-1].queue) > pop_from:
-                                next_up = queue_list[-1].queue[pop_from].fcfs_arrive + upgrade_bound
+                            if queue_list[-1].queue:
+                                next_up = queue_list[-1].queue[0].fcfs_arrive + upgrade_bound
                         
                         # Preemptive
                         if process_with_cpu != None and process_with_cpu.cur_queue > 0:
-                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=f"RR{process_with_cpu.cur_queue}")
+                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=f"RR{process_with_cpu.cur_queue+1}")
                         
                         last_timestep = next_upgrade
                     
