@@ -272,7 +272,10 @@ class App(ctk.CTk):
                 # Next time that case 3 happen: a process is upgraded from FCFS
                 next_upgrade = inf
                 if queue_list[-1].queue:
-                    next_upgrade = queue_list[-1].queue[0].fcfs_arrive + upgrade_bound
+                    if process_with_cpu != None and process_with_cpu.cur_queue < len(queue_list)-1:
+                        next_upgrade = queue_list[-1].queue[0].fcfs_arrive + upgrade_bound
+                    elif len(queue_list[-1].queue) > 1:
+                        next_upgrade = queue_list[-1].queue[1].fcfs_arrive + upgrade_bound
 
                 # Check if all finish
                 if finish_cpu == inf and next_arrival == inf and next_upgrade == inf:
@@ -326,11 +329,14 @@ class App(ctk.CTk):
                     if next_upgrade < finish_cpu and next_upgrade <= next_arrival:
                         # Move background processes to high priority queue
                         tmp = next_up = next_upgrade
-                        while next_up == tmp and queue_list[-1].queue:
-                            upgrade(queue_list[-1].queue.pop(0), next_upgrade)
+                        pop_from = 0
+                        if process_with_cpu != None and process_with_cpu.cur_queue == len(queue_list)-1:
+                            pop_from += 1
+                        while next_up == tmp and len(queue_list[-1].queue) > pop_from:
+                            upgrade(queue_list[-1].queue.pop(pop_from), next_upgrade)
                             next_up = -1
-                            if queue_list[-1].queue:
-                                next_up = queue_list[-1].queue[0].fcfs_arrive + upgrade_bound
+                            if len(queue_list[-1].queue) > pop_from:
+                                next_up = queue_list[-1].queue[pop_from].fcfs_arrive + upgrade_bound
                         
                         # Preemptive
                         if process_with_cpu != None and process_with_cpu.cur_queue > 0:
