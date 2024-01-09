@@ -5,6 +5,7 @@ from Queue import Queue
 from Process import Process
 from copy import deepcopy
 
+# Q0: 10 Q1: 20 Q3: 40 P0: 0,90 P1: 100,80 P2:80,60 P3:130,75
 inf = 10**9
 
 # System settings
@@ -30,7 +31,7 @@ finish_check = False
 def add_queue_window():
     addqueueWindow = ctk.CTk()
 
-    addqueueWindow.geometry("480x80+500+180")
+    addqueueWindow.geometry("480x80+400+180")
     addqueueWindow.resizable(0, 0)
     addqueueWindow.title("Add Queue")
     
@@ -66,7 +67,7 @@ def add_process_window():
     global reset_process_list
     addprocessWindow = ctk.CTk()
 
-    addprocessWindow.geometry("480x80+500+400")
+    addprocessWindow.geometry("480x80+400+400")
     addprocessWindow.resizable(0, 0)
     addprocessWindow.title("Add Process")
 
@@ -109,11 +110,11 @@ class App(ctk.CTk):
         super().__init__()
 
         # App settings
-        self.geometry("1024x512+200+100")
+        self.geometry("1200x512+70+100")
         self.title("MLFQ")
 
         # Grid layout (2x1)
-        self.grid_columnconfigure((0, 2, 3), weight=0)
+        self.grid_columnconfigure((0, 2, 3, 4), weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure((2, 5), weight=1)
         self.grid_rowconfigure((0, 1, 3, 4), weight=0)
@@ -137,8 +138,18 @@ class App(ctk.CTk):
         # Create submit button
         # Submit
         def submit():
-            global queue_list, process_list, allprocess_list
-            
+            global queue_list, process_list, allprocess_list, process_with_cpu, last_timestep, upgrade_bound, last_cpu, finish_check
+
+            #Reset
+            if allprocess_list:
+                process_list = deepcopy(reset_process_list)
+                queue_list.pop(-1)
+
+                process_with_cpu = None
+                last_timestep = 0
+                last_cpu = None
+                finish_check = False
+
             # Display frame
             self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
             self.main_frame.grid(row=0, column=1, rowspan=4, sticky="nsew")
@@ -160,8 +171,8 @@ class App(ctk.CTk):
                     time_text = " "+time_text 
                 timeline_text.set(timeline_text.get()+time_text)
 
-                self.awt_label = ctk.CTkLabel(self.main_frame, text=f"Average Waiting Time : \t{sum(self.table.get_column(6)[1:])/(len(value_table)-1)}")
-                self.awt_label.grid(row=5, column=1, columnspan=3, padx=40, pady=0, sticky="sw")
+                self.awt_label = ctk.CTkLabel(self.main_frame, text=f"Average Waiting Time : \t{sum(self.table.get_column(7)[1:])/(len(value_table)-1)}")
+                self.awt_label.grid(row=5, column=1, columnspan=4, padx=40, pady=0, sticky="sw")
 
             # Downgrade a process after using CPU
             def downgrade(process, curtime):
@@ -174,13 +185,16 @@ class App(ctk.CTk):
 
                         # Remain Time
                         proc.remain_time -= proc.remain_cpu
-                        self.table.insert(row=proc.process_id+1, column=4, value=proc.remain_time)
+                        self.table.insert(row=proc.process_id+1, column=5, value=proc.remain_time)
+
+                        # Return CPU
+                        self.table.insert(row=proc.process_id+1, column=2, value=".")
 
                         # Finish process
                         if proc.remain_time == 0:
                             self.table.insert(row=proc.process_id+1, column=1, value="X")
                             proc.completion_time = curtime
-                            self.table.insert(row=proc.process_id+1, column=5, value=proc.completion_time)
+                            self.table.insert(row=proc.process_id+1, column=6, value=proc.completion_time)
                             process_with_cpu = None
                         else:
                             # Update State
@@ -196,7 +210,7 @@ class App(ctk.CTk):
                     # Increase other processes waiting time
                     elif proc.arrival_time < curtime and proc.completion_time == -1:
                         proc.waiting_time += curtime-last_timestep
-                        self.table.insert(row=proc.process_id+1, column=6, value=proc.waiting_time)
+                        self.table.insert(row=proc.process_id+1, column=7, value=proc.waiting_time)
 
             # Give the CPU to a new process
             def give_cpu(curtime):
@@ -206,7 +220,7 @@ class App(ctk.CTk):
                         process = qqueue.queue[0]
                         
                         process.remain_cpu = min(process.remain_time, qqueue.quantum)
-                        self.table.insert(row=process.process_id+1, column=1, value="CPU")
+                        self.table.insert(row=process.process_id+1, column=2, value="*")
                         process_with_cpu = process
 
                         # Update Gantt Chart
@@ -227,14 +241,14 @@ class App(ctk.CTk):
                     # Update process with CPU
                     if proc is process_with_cpu:
                         proc.remain_time -= curtime-last_timestep
-                        self.table.insert(row=proc.process_id+1, column=4, value=proc.remain_time)
+                        self.table.insert(row=proc.process_id+1, column=5, value=proc.remain_time)
 
                         proc.remain_cpu -= curtime-last_timestep
 
                     # Increase other processes waiting time
                     elif proc.arrival_time < curtime and proc.completion_time == -1:
                         proc.waiting_time += curtime-last_timestep
-                        self.table.insert(row=proc.process_id+1, column=6, value=proc.waiting_time)
+                        self.table.insert(row=proc.process_id+1, column=7, value=proc.waiting_time)
 
                 # Add arriving process to 1st queue
                 queue_list[0].queue.append(process)
@@ -248,14 +262,14 @@ class App(ctk.CTk):
                     # Update process with CPU
                     if proc is process_with_cpu:
                         proc.remain_time -= curtime-last_timestep
-                        self.table.insert(row=proc.process_id+1, column=4, value=proc.remain_time)
+                        self.table.insert(row=proc.process_id+1, column=5, value=proc.remain_time)
 
                         proc.remain_cpu -= curtime-last_timestep
 
                     # Increase other processes waiting time
                     elif proc.arrival_time < curtime and proc.completion_time == -1:
                         proc.waiting_time += curtime-last_timestep
-                        self.table.insert(row=proc.process_id+1, column=6, value=proc.waiting_time)
+                        self.table.insert(row=proc.process_id+1, column=7, value=proc.waiting_time)
 
                 # Move process to high priority queue
                 queue_list[0].queue.append(process)
@@ -323,8 +337,8 @@ class App(ctk.CTk):
                         
                         # Preemptive
                         if process_with_cpu != None and process_with_cpu.cur_queue > 0:
-                            queue_tmp = f"RR{process_with_cpu.cur_queue}" if process_with_cpu.cur_queue < len(queue_list)-1 else "FCFS"
-                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=queue_tmp)
+                            # queue_tmp = f"RR{process_with_cpu.cur_queue}" if process_with_cpu.cur_queue < len(queue_list)-1 else "FCFS"
+                            self.table.insert(row=process_with_cpu.process_id+1, column=2, value=".")
 
                         last_timestep = next_arrival
                     
@@ -340,8 +354,8 @@ class App(ctk.CTk):
                         
                         # Preemptive
                         if process_with_cpu != None and process_with_cpu.cur_queue > 0:
-                            queue_tmp = f"RR{process_with_cpu.cur_queue}" if process_with_cpu.cur_queue < len(queue_list)-1 else "FCFS"
-                            self.table.insert(row=process_with_cpu.process_id+1, column=1, value=queue_tmp)
+                            # queue_tmp = f"RR{process_with_cpu.cur_queue}" if process_with_cpu.cur_queue < len(queue_list)-1 else "FCFS"
+                            self.table.insert(row=process_with_cpu.process_id+1, column=2, value=".")
                         
                         last_timestep = next_upgrade
                     
@@ -352,18 +366,22 @@ class App(ctk.CTk):
 
             # Next button
             self.next_button = ctk.CTkButton(self.main_frame, text="Next", command=next_timestep)
-            self.next_button.grid(row=0, column=3, padx=40, pady=20, sticky="ne")
+            self.next_button.grid(row=0, column=3, padx=20, pady=20, sticky="ne")
+
+            # Reset button
+            self.reset_button = ctk.CTkButton(self.main_frame, text="Reset", command=submit)
+            self.reset_button.grid(row=0, column=4, padx=40, pady=20, sticky="ne")
 
             self.main_frame.grid_columnconfigure(3, weight=1)
 
             # Add scheduling table
-            value_table = [["Process", "State", "Arrival Time", "Burst Time", "Remaining Time", "Completion Time", "Waiting Time"]]
+            value_table = [["Process", "Queue", "CPU", "Arrival Time", "Burst Time", "Remaining Time", "Completion Time", "Waiting Time"]]
             for process in process_list:
-                row = [process.get_name(), "___", process.arrival_time, process.burst_time, process.burst_time, "___", 0]
+                row = [process.get_name(), "___", ".", process.arrival_time, process.burst_time, process.burst_time, "___", 0]
                 value_table.append(row)
 
             self.table = CTkTable(self.main_frame, values=value_table)
-            self.table.grid(row=1, column=1, columnspan=3, padx=20, pady=20, sticky="new")
+            self.table.grid(row=1, column=1, columnspan=4, padx=20, pady=20, sticky="new")
             
             # Add Gantt Chart label
             self.ganttchart_label = ctk.CTkLabel(self.main_frame, text="Gantt Chart")
@@ -373,13 +391,13 @@ class App(ctk.CTk):
             process_text = tk.StringVar()
             process_text.set("Process|")
             self.ganttchart_process = ctk.CTkLabel(self.main_frame, textvariable=process_text, font=("Consolas", 12))
-            self.ganttchart_process.grid(row=3, column=1, columnspan=3, padx=40, pady=0, sticky="nw")
+            self.ganttchart_process.grid(row=3, column=1, columnspan=4, padx=40, pady=0, sticky="nw")
 
             # Add Gantt Chart timeline
             timeline_text = tk.StringVar()
             timeline_text.set("       0")
             self.ganttchart_timeline = ctk.CTkLabel(self.main_frame, textvariable=timeline_text, font=("Consolas", 12))
-            self.ganttchart_timeline.grid(row=4, column=1, columnspan=3, padx=40, pady=0, sticky="nw")
+            self.ganttchart_timeline.grid(row=4, column=1, columnspan=4, padx=40, pady=0, sticky="nw")
 
             self.main_frame.grid_rowconfigure(5, weight=1)
             
